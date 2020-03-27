@@ -12,9 +12,10 @@ Currently, the font generator is configured such that it provides all printable 
 
 The C++ pixelfont's interface is defined by its parent class `PixelFont`. The two generated classes `OctafontRegular` and `OctafontBold` are its descendants and can be instantiated. The interface offers three basic methods for accessing the pixeldata:
 
-* `has_char` determines whether a certain character is included in the font
-* `get_width` returns the width in columns of the given character
-* `get_octet` provides the pixel data for the given character and the given column index
+* `has_char(char)` determines whether a certain character is included in the font.
+* `get_width(char)` returns the width in columns of the given character.
+* `get_octet(char, uint8_t)` provides the pixel data for the given character and the given column index.
+* `static get_undercut(PixelFont&, char, PixelFont&, char)` determines, whether the two characters can have an undercut when being displayed next to each other. Normally the characters are supposed to have one column distance between each other, however if this function returns 1, the distance can be decreased to no column.
 
 The pixel data is stored and provided as `uint8_t` where the least significant bit is the topmost in the column. Each column has therefore a height of 8 pixels and that's why it is called octafont.
 
