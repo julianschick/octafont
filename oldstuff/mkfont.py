@@ -4,11 +4,11 @@ from os import listdir, makedirs
 from os.path import realpath, dirname, join, isfile, basename, splitext, exists
 
 here = dirname(realpath(__file__))
-input_dir = join(here, "pixeldata")
+input_dir = join(here, "octafont", "pixeldata")
 input_files = [join(input_dir, f) for f in listdir(input_dir) if isfile(join(input_dir, f)) and f.lower().endswith(".png")]
 
-if not exists('output'):
-    makedirs('output')
+if not exists('../output'):
+    makedirs('../output')
 
 
 def extract_pixel_data(img, marker_line):
