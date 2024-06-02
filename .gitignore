@@ -3,3 +3,4 @@ output/
 build/
 dist/
 *.egg-info/
+octafont/__pycache__/

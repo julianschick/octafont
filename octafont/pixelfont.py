@@ -12,9 +12,6 @@ class PixelFontVariant(Enum):
     BOLD = 1
 
 
-V = PixelFontVariant
-
-
 class SpecialChar(Enum):
     SPACE = 0
     LINEBREAK = 1
@@ -52,6 +49,12 @@ class LineMetrics:
 
 class PixelCharacter:
     def __init__(self, pixels: list[list[bool]], auto_undercut: bool = True):
+        """
+        Build the pixel character from raw pixel data.
+        :param pixels: This is a list of columns, should hence be read as pixels[x][y].
+        :param auto_undercut: Allow this character to automatically determine the undercut depending on the following
+            character.
+        """
         self._pixels = pixels
         self._auto_undercut = auto_undercut
 
@@ -62,13 +65,21 @@ class PixelCharacter:
 
     @property
     def width(self) -> int:
+        """Width of the character in pixels."""
         return len(self._pixels)
 
     @property
     def height(self) -> int:
+        """Font height of the font this character belongs to (not the real height of the character)."""
         return len(self._pixels[0])
 
     def get_undercut(self, following_char: 'PixelCharacter') -> int:
+        """
+        Calculates a possible amount of pixel undercut if this character is followed by the given character. If
+        this character is not allowing automatic undercut, 0 is returned.
+        :param following_char: Next character
+        :return: Number of pixels of undercut
+        """
         if not self._auto_undercut:
             return 0
 
@@ -84,6 +95,18 @@ class PixelCharacter:
         return 1
 
     def draw(self, img: Image, box: 'Rect', color: Tuple[int, int, int] = (0, 0, 0)) -> Optional[Tuple[int, int]]:
+        """
+        Draws this character onto a pillow image.
+
+        :param img: Image to draw on
+        :param box: Clipping and positioning rectangle for the draw operation (no pixel outside of this box is touched).
+            The top left corner of the rectangle is the origin for the draw operation. The rectangle does not have to be
+            within the image canvas bounds. If it is fully outside, no drawing happens at all, since the image canvas
+            size is also respected as clipping rectangle.
+        :param color: Text color (black if omitted).
+        :return: Tuple containing the x-coordinate of the rightmost and the y-coordinate of the bottom-most pixel that
+            have been colored (in image coordinates). Is None if no pixel at all has been colored.
+        """
         if not color >= (0, 0, 0) or not color <= (255, 255, 255):
             raise RuntimeError("Invalid color value")
 
@@ -102,6 +125,7 @@ class PixelCharacter:
         return None if max_x == -1 else max_x, max_y
 
     def __str__(self):
+        """Return a multiline ASCII-Art representation of the character."""
         result = ''
         for y in range(0, self.height):
             result += ''.join(map(lambda i: 'O' if self._pixels[i][y] else ' ', range(self.width)))
@@ -172,23 +196,37 @@ class PixelFont:
 
             self._characters[variant] = chars
 
-    def _build_codepage(self):
+    def _build_codepage(self) -> dict[str, int]:
+        """Return a map from unicode character to index of the character in the font."""
         raise NotImplementedError
 
     def _extract_column(self, img: Image, x: int, y_start: int) -> list[bool]:
+        """Extract a column from the original pixel data defining the font."""
         col_data = [False for _ in range(self._height)]
         for y in range(y_start, y_start + self._height):
             col_data[y - y_start] = True if img.getpixel((x, y)) != (255, 255, 255) else False
         return col_data
 
     def _get_char_index(self, unicode_char: str) -> Optional[int]:
+        """Use the codepage in order to retrieve the index of the character in the font."""
         return self._codepage.get(unicode_char[0])
 
     @property
     def height(self):
+        """Height of the font in pixels"""
         return self._height
 
     def get_character(self, c: str, variant: PixelFontVariant = PixelFontVariant.NORMAL) -> Optional[PixelCharacter]:
+        """
+        Get a char from the font as PixelCharacter.
+        :param c: Requested unicode character (if string is longer than one char, only the first is taken into account).
+        :param variant: Requested font variant.
+        :return: The requested PixelCharacter if the font provides it, None otherwise.
+        :raises: RuntimeError if c is empty.
+        """
+        if len(c) == 0:
+            raise RuntimeError("Nonempty string expected")
+
         if not self._characters[variant]:
             return None
 
@@ -198,8 +236,9 @@ class PixelFont:
     def _metrics(self,
                  message: str,
                  variant_map: list[PixelFontVariant],
-                 base_variant: PixelFontVariant = V.NORMAL,
+                 base_variant: PixelFontVariant = PixelFontVariant.NORMAL,
                  break_width: Optional[int] = None) -> list[LineMetrics]:
+        """Build internal line metrics for a given message. Check 'metrics()' for external usage."""
 
         effective_variant_map = \
             [variant_map[i] if i < len(variant_map) else base_variant for i in range(len(message))]
@@ -272,7 +311,18 @@ class PixelFont:
             message: str,
             variant_map=None, variant: PixelFontVariant = PixelFontVariant.NORMAL
     ) -> Tuple[int, int]:
-
+        """
+        Get width and height of a string if it were rendered in this font. It is assumed that no auto line breaks happen
+        but the explicit line breaks within the string are taken into account.
+        :param message: String in question.
+        :param variant_map: Font variant per character. If the i-th entry of this list contains a certain variant, then
+            the i-th character of the message is to be drawn in this variant. This parameter is optional with fallback
+            to the base variant given by parameter 'variant'.
+        :param variant: Base variant, is used for all characters not specified by variant_map (if the variant map
+            is empty or not as long as the string). This parameter is optional, the font variant NORMAL is chosen if
+            omitted.
+        :return: Tuple of width and height that is needed as bounding box for the given string.
+        """
         if variant_map is None:
             variant_map = []
 
@@ -293,6 +343,24 @@ class PixelFont:
              wrap_text: bool = False, clip_whole_chars: bool = False,
              text_alignment: TextAlignment = TextAlignment.LEFT,
              color: Tuple[int, int, int] = (0, 0, 0)):
+        """
+        Draws a string onto a pillow image.
+        :param message: String to be drawn.
+        :param img: Image to be drawn on.
+        :param box: Bounding box not be exceeded by text rendering. Can be omitted, then the whole image canvas is
+            assumed as bounding box.
+        :param variant_map:  Font variant per character. If the i-th entry of this list contains a certain variant, then
+            the i-th character of the message is to be drawn in this variant. This parameter is optional with fallback
+            to the base variant given by parameter 'variant'.
+        :param variant: Base variant, is used for all characters not specified by variant_map (if the variant map
+            is empty or not as long as the string). This parameter is optional, the font variant NORMAL is chosen if
+            omitted.
+        :param wrap_text: If set to True, the text is wrapped character-wise at the right edge of the bounding box.
+        :param clip_whole_chars: If wrap_text is False this parameter can be set to True and then prevents characters
+            from being clipped. In this case rather a full character is not drawn than being clipped.
+        :param text_alignment: Text alignment within the box (LEFT, CENTERED or RIGHT).
+        :param color: Text color (black if omitted).
+        """
 
         if variant_map is None:
             variant_map = []
