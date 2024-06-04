@@ -1,7 +1,7 @@
 import io
 
 from PIL import Image
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Any
 from enum import Enum
 
 from octafont.rect import Rect
@@ -94,7 +94,7 @@ class PixelCharacter:
 
         return 1
 
-    def draw(self, img: Image, box: 'Rect', color: Tuple[int, int, int] = (0, 0, 0)) -> Optional[Tuple[int, int]]:
+    def draw(self, img: Image, box: 'Rect', color: Any = 0) -> Optional[Tuple[int, int]]:
         """
         Draws this character onto a pillow image.
 
@@ -103,12 +103,11 @@ class PixelCharacter:
             The top left corner of the rectangle is the origin for the draw operation. The rectangle does not have to be
             within the image canvas bounds. If it is fully outside, no drawing happens at all, since the image canvas
             size is also respected as clipping rectangle.
-        :param color: Text color (black if omitted).
+        :param color: Text color (black if omitted). Integer or tuple of integers, depending on the color space of
+            the image.
         :return: Tuple containing the x-coordinate of the rightmost and the y-coordinate of the bottom-most pixel that
             have been colored (in image coordinates). Is None if no pixel at all has been colored.
         """
-        if not color >= (0, 0, 0) or not color <= (255, 255, 255):
-            raise RuntimeError("Invalid color value")
 
         box = box.intersect(Rect.from_image_dimensions(img))
         if box.is_empty():
@@ -342,7 +341,7 @@ class PixelFont:
              variant: PixelFontVariant = PixelFontVariant.NORMAL,
              wrap_text: bool = False, clip_whole_chars: bool = False,
              text_alignment: TextAlignment = TextAlignment.LEFT,
-             color: Tuple[int, int, int] = (0, 0, 0)):
+             color: Any = 0):
         """
         Draws a string onto a pillow image.
         :param message: String to be drawn.
@@ -359,7 +358,8 @@ class PixelFont:
         :param clip_whole_chars: If wrap_text is False this parameter can be set to True and then prevents characters
             from being clipped. In this case rather a full character is not drawn than being clipped.
         :param text_alignment: Text alignment within the box (LEFT, CENTERED or RIGHT).
-        :param color: Text color (black if omitted).
+        :param color: Text color (black if omitted). Integer or tuple of integers, depending on the color space of
+            the image.
         """
 
         if variant_map is None:
@@ -367,9 +367,6 @@ class PixelFont:
 
         if box is None:
             box = Rect.from_image_dimensions(img)
-
-        if not color >= (0, 0, 0) or not color <= (255, 255, 255):
-            raise RuntimeError("Invalid color value")
 
         for line in self._metrics(
                 message,
