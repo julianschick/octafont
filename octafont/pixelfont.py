@@ -163,7 +163,7 @@ class PixelFont:
         for (variant, y_marker) in variants.items():
             chars = []
             for x in range(0, img.width):
-                marker_pixel: Tuple[int, int] = img.getpixel((x, y_marker))
+                marker_pixel: Tuple[int, int, int] = img.getpixel((x, y_marker))
 
                 # red marker = char begin
                 if marker_pixel == (255, 0, 0):
